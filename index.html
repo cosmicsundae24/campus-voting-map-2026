@@ -1,0 +1,137 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Campus Voting Sites</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#1d1d1f;--mute:#5d5d66;--line:#e2ded5;--camp:#2b59c3;--ev:#1a8a4a;--ed:#c2410c;--warn:#8a5a00;--warnbg:#fff4d6}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#15161a;--card:#1f2026;--ink:#ecebe7;--mute:#a3a3ad;--line:#33343c;--warnbg:#3a2f12;--warn:#f0c46a}}
+:root[data-theme=dark]{--bg:#15161a;--card:#1f2026;--ink:#ecebe7;--mute:#a3a3ad;--line:#33343c;--warnbg:#3a2f12;--warn:#f0c46a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:20px 16px 8px;max-width:980px;margin:auto}h1{margin:0 0 4px;font-size:22px}header p{margin:4px 0;color:var(--mute);font-size:14px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;margin:8px 0}.dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+main{max-width:980px;margin:auto;padding:0 16px 40px}#overview{height:380px;border-radius:12px;border:1px solid var(--line);margin:8px 0 14px}
+.jump{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}.jump a{font-size:13px;padding:4px 9px;border:1px solid var(--line);border-radius:999px;color:var(--ink);text-decoration:none;background:var(--card)}
+.county{margin:22px 0 8px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:0 0 16px;break-inside:avoid}
+.card h2{margin:0 0 2px;font-size:18px}.sub{color:var(--mute);font-size:13px;margin-bottom:8px}
+.mini{height:380px;border-radius:9px;border:1px solid var(--line);margin:8px 0 4px}@media (max-width:600px){.mini{height:340px}}
+.site{border-left:4px solid;padding:4px 0 4px 10px;margin:8px 0}.site b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.site.ev{border-color:var(--ev)}.site.ev b{color:var(--ev)}.site.ed{border-color:var(--ed)}.site.ed b{color:var(--ed)}.site.cp{border-color:var(--camp)}.site.cp b{color:var(--camp)}
+.dist{font-weight:600}.site a{display:inline-block;font-size:13px;color:#fff;background:#2b59c3;padding:3px 10px;border-radius:999px;text-decoration:none;margin-top:3px}.note{background:var(--warnbg);color:var(--warn);font-size:13px;padding:6px 9px;border-radius:7px;margin-top:8px}
+.ver{font-size:12px;color:var(--mute);margin-top:8px}
+.lab{font:700 11px/1.2 system-ui,sans-serif;padding:3px 6px;border-radius:6px;color:#fff;border:0;box-shadow:0 1px 4px rgba(0,0,0,.35);white-space:nowrap}
+.lab small{display:block;font-weight:500;font-size:11px;opacity:.95;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.lab.c{background:#2b59c3}.lab.ev{background:#1a8a4a}.lab.ed{background:#c2410c}.lab.both{background:linear-gradient(90deg,#1a8a4a,#c2410c)}.lab.only{background:#fff;color:#c2410c;border:2px solid #c2410c}
+.lab:before{display:none}
+.leaflet-tooltip.mi{font-weight:600;font-size:12px;padding:1px 5px}
+footer{max-width:980px;margin:auto;padding:0 16px 30px;color:var(--mute);font-size:12px}
+@media print{#overview,.jump,.noprint{display:none}body{background:#fff;color:#000}.card{break-after:page;border:none}.mini{height:420px}}
+</style></head><body>
+<header><h1>Where students vote near campus</h1>
+<p>Nov 3, 2026 general election &middot; Early voting Mon Oct 19 &ndash; Fri Oct 30 &middot; Election Day Tue Nov 3</p>
+<div class="legend"><span><span class="dot" style="background:var(--camp)"></span>Campus</span><span><span class="dot" style="background:var(--ev)"></span>Early voting (EV)</span><span><span class="dot" style="background:var(--ed)"></span>Election Day (ED)</span><span><span class="dot" style="border:3px solid var(--ed);background:#fff;width:12px;height:12px"></span>ED for one precinct only</span><span><span class="dot" style="background:var(--ev);border:3px solid var(--ed);width:14px;height:14px"></span>EV + ED same place</span><span><span class="dot" style="border:3px solid var(--camp);width:16px;height:16px"></span>blue ring = also the campus address</span></div>
+<p>Distances are straight-line miles, not driving. "On campus" means the polling place is on the campus itself. Tap "directions" for the route.</p></header>
+<main><div id="overview"></div><div class="jump noprint" id="jump"></div><div id="cards"></div></main>
+<footer>Sites come from the campus sheet, checked against each county's posted list on Oct 13&ndash;14, 2026. Counties can still move sites, so re-check the county page before Oct 19 and again before Nov 3. Map &copy; OpenStreetMap contributors (a copy opened from disk uses Esri tiles). Pins are placed by address lookup; the written address is what counts.</footer>
+<script>
+const D = [{"name": "TAMUSA", "county": "Bexar", "caddr": "1 University Way, San Antonio, TX 78224", "c": [29.3030308, -98.5267582], "evl": "On campus: Texas A&M University-San Antonio", "eva": "1 University Way, San Antonio, TX 78224", "ev": [29.3030308, -98.5267582], "evd": 0.0, "edl": "On campus: same site", "eda": "1 University Way, San Antonio, TX 78224", "ed": [29.3030308, -98.5267582], "edd": 0.0, "note": ""}, {"name": "UTSA", "county": "Bexar", "caddr": "One UTSA Circle, San Antonio, TX 78249", "c": [29.5858247, -98.6172574], "evl": "On campus: Bexar Room, H-E-B Student Union (HSU 1.102)", "eva": "One UTSA Circle, San Antonio, TX 78249", "ev": [29.58303, -98.62028], "evd": 0.3, "edl": "On campus: Bexar Room, H-E-B Student Union (HSU 1.102)", "eda": "One UTSA Circle, San Antonio, TX 78249", "ed": [29.58303, -98.62028], "edd": 0.3, "note": "Room from UTSA's 'Vote at UT San Antonio' page; Bexar's county list names UTSA (1 UTSA Cir) without a room. EV hours match the county schedule: Oct 19-23 8a-6p, Sat Oct 24 7a-7p, Sun Oct 25 12-6p, Oct 26-30 7a-7p. Election Day 7a-7p."}, {"name": "UTSA Downtown", "county": "Bexar", "caddr": "501 W Cesar E Chavez Blvd, San Antonio, TX 78207", "c": [29.4235549, -98.5029766], "evl": "Bexar County Elections (full hours)", "eva": "1103 S Frio St, San Antonio, TX 78207", "ev": [29.4148788, -98.5059997], "evd": 0.6, "edl": "Justice Center", "eda": "300 Dolorosa, San Antonio, TX 78205", "ed": [29.4235611, -98.4943557], "edd": 0.5, "note": "Justice Center EV is weekdays 8-6 only"}, {"name": "St. Edward's", "county": "Travis", "caddr": "3001 S Congress Ave, Austin, TX 78704", "c": [30.2261731, -97.7521825], "evl": "South Austin Recreation Center, Lobby", "eva": "1100 Cumberland Rd, Austin, TX 78704", "ev": [30.2415445, -97.768599], "evd": 1.4, "edl": "On campus: UFCU Alumni Gym", "eda": "3001 S Congress Ave, Austin, TX 78704", "ed": [30.2261731, -97.7521825], "edd": 0.0, "note": ""}, {"name": "UT Austin", "county": "Travis", "caddr": "110 Inner Campus Dr, Austin, TX 78712", "c": [30.2860708, -97.7393521], "evl": "On campus: Texas Union, Room 2.214 (also LBJ School lobby)", "eva": "2308 Whitis Ave, Austin, TX 78705", "ev": [30.2867166, -97.7412072], "evd": 0.1, "edl": "On campus: Texas Union / LBJ School", "eda": "2308 Whitis Ave, Austin, TX 78705", "ed": [30.2867166, -97.7412072], "edd": 0.1, "note": "Texas Union open till 10pm Oct 29-30"}, {"name": "Texas State", "county": "Hays", "caddr": "601 University Dr, San Marcos, TX 78666", "c": [29.89109, -97.93762], "evl": "On campus: LBJ Student Center", "eva": "301 Student Center Dr, San Marcos, TX 78666", "ev": [29.8892468, -97.9443786], "evd": 0.4, "edl": "On campus: same site", "eda": "301 Student Center Dr, San Marcos, TX 78666", "ed": [29.8892468, -97.9443786], "edd": 0.4, "note": ""}, {"name": "Rice", "county": "Harris", "caddr": "6100 Main St, Houston, TX 77005", "c": [29.7144295, -95.4068418], "evl": "Holiday Inn Houston NRG Med Center, Royal Oak Ballroom", "eva": "8111 Kirby Dr, Houston, TX 77054", "ev": [29.6890943, -95.4126211], "evd": 1.8, "edl": "On campus: Rice Welcome Center, Sewall Hall", "eda": "6100 Main St, Houston, TX 77005", "ed": [29.7144295, -95.4068418], "edd": 0.0, "note": ""}, {"name": "Texas Southern", "county": "Harris", "caddr": "3100 Cleburne St, Houston, TX 77004", "c": [29.7210521, -95.3611504], "evl": "On campus: Barbara Jordan-Mickey Leland School of Public Affairs, Room 114", "eva": "3693 Sampson St, Houston, TX 77004", "ev": [29.724329, -95.3548519], "evd": 0.4, "edl": "On campus: same building, Room 114", "eda": "3693 Sampson St, Houston, TX 77004", "ed": [29.724329, -95.3548519], "edd": 0.4, "note": ""}, {"name": "University of Houston", "county": "Harris", "caddr": "4800 Calhoun Rd, Houston, TX 77004", "c": [29.7207902, -95.3440627], "evl": "On campus: UH Student Center, Theater Room", "eva": "4455 University Dr, Houston, TX 77204", "ev": [29.720229, -95.3404534], "evd": 0.2, "edl": "On campus: same site", "eda": "4455 University Dr, Houston, TX 77204", "ed": [29.720229, -95.3404534], "edd": 0.2, "note": "Campus address 4800 Calhoun Rd: check on uh.edu"}, {"name": "University of St. Thomas", "county": "Harris", "caddr": "3800 Montrose Blvd, Houston, TX 77006", "c": [29.738651, -95.391267], "evl": "Metropolitan MultiService Center, Gymnasium", "eva": "1475 W Gray St, Houston, TX 77019", "ev": [29.7521394, -95.4000091], "evd": 1.1, "edl": "On campus: Atrium", "eda": "3800 Montrose Blvd, Houston, TX 77006", "ed": [29.738651, -95.391267], "edd": 0.0, "note": ""}, {"name": "Prairie View A&M", "county": "Waller", "caddr": "100 University Dr, Prairie View, TX 77446", "c": [30.0961, -95.987], "evl": "Waller County Community Center", "eva": "21274 FM 1098, Prairie View, TX 77446", "ev": null, "evd": null, "edl": "On campus for precinct 311 ONLY: Memorial Student Center, Student Lounge", "eda": "100 University Dr, Prairie View, TX 77446", "ed": [30.09252, -95.99115], "edd": 0.4, "note": "Waller votes by precinct on Election Day"}, {"name": "Texas A&M", "county": "Brazos", "caddr": "400 Bizzell St, College Station, TX 77843", "c": [30.6066144, -96.3514453], "evl": "On campus: Memorial Student Center (MSC), Room L526", "eva": "275 Joe Routt Blvd, College Station, TX 77843", "ev": [30.6122297, -96.3412229], "evd": 0.7, "edl": "On campus: Vote Center #11, MSC Rm L526", "eda": "275 Joe Routt Blvd, College Station, TX 77843", "ed": [30.6122297, -96.3412229], "edd": 0.7, "note": ""}, {"name": "Lamar University", "county": "Jefferson", "caddr": "4400 S Martin Luther King Jr Pkwy, Beaumont, TX 77705", "c": [30.0388947, -94.0758929], "evl": "Jefferson County Courthouse, lobby", "eva": "1085 Pearl St, Beaumont, TX 77701", "ev": [30.079054, -94.0938499], "evd": 3.0, "edl": "On campus: Montagne Center, Cardinal Club Room", "eda": "4401 S Martin Luther King Jr Pkwy, Beaumont, TX 77705", "ed": [30.043581, -94.0720687], "edd": 0.4, "note": ""}, {"name": "Paul Quinn College", "county": "Dallas", "caddr": "3837 Simpson Stuart Rd, Dallas, TX 75241", "c": [32.6789482, -96.7558953], "evl": "Highland Hills Library, Auditorium", "eva": "6200 Bonnie View Rd, Dallas, TX 75241", "ev": [32.670714, -96.761347], "evd": 0.7, "edl": "Highland Hills UMC, Fellowship Hall", "eda": "3800 Simpson Stuart Rd, Dallas, TX 75241", "ed": [32.6752236, -96.7566446], "edd": 0.3, "note": "The library is ALSO an Election Day site"}, {"name": "UNT Dallas", "county": "Dallas", "caddr": "7300 University Hills Blvd, Dallas, TX 75241", "c": [32.662092, -96.805625], "evl": "Singing Hills Recreation Center, Tech Room", "eva": "6805 Patrol Way, Dallas, TX 75241", "ev": [32.6668736, -96.7892337], "evd": 1.0, "edl": "On campus: Room 100", "eda": "7300 University Hills Blvd, Dallas, TX 75241", "ed": [32.662092, -96.805625], "edd": 0.0, "note": ""}, {"name": "UTD (Dallas voters)", "county": "Dallas", "caddr": "800 W Campbell Rd, Richardson, TX 75080", "c": [32.9851409, -96.749788], "evl": "Ministerios Charisma, Large Side Room", "eva": "740 Melrose Dr, Richardson, TX 75080", "ev": [32.970823, -96.74688], "evd": 1.0, "edl": "On campus: UTD Activity Center, Atrium", "eda": "800 W Campbell Rd, Richardson, TX 75080", "ed": [32.9851409, -96.749788], "edd": 0.0, "note": "Dallas County voters only"}, {"name": "UTD (Collin voters)", "county": "Collin", "caddr": "800 W Campbell Rd, Richardson, TX 75080", "c": [32.9851409, -96.749788], "evl": "Renner-Frankford Branch Library, Auditorium", "eva": "6400 Frankford Rd, Dallas, TX 75252", "ev": [32.9977208, -96.794614], "evd": 2.7, "edl": "On campus: UTD Callier Clinical Research Center, Lobby", "eda": "811 Synergy Park Blvd, Richardson, TX 75080", "ed": [32.9928658, -96.7491648], "edd": 0.5, "note": "Collin voters only"}, {"name": "Texas Wesleyan", "county": "Tarrant", "caddr": "1201 Wesleyan St, Fort Worth, TX 76105", "c": [32.7323914, -97.2795045], "evl": "Charles F. Griffin Building", "eva": "3212 Miller Ave, Fort Worth, TX 76119", "ev": [32.7120419, -97.2634988], "evd": 1.7, "edl": "Sycamore Recreation Center, Multipurpose Room", "eda": "2525 E Rosedale St, Fort Worth, TX 76105", "ed": [32.7313724, -97.2902099], "edd": 0.6, "note": ""}, {"name": "UT Arlington", "county": "Tarrant", "caddr": "701 S Nedderman Dr, Arlington, TX 76019", "c": [32.7295193, -97.1147381], "evl": "Tarrant County Subcourthouse in Arlington", "eva": "700 E Abram St, Arlington, TX 76010", "ev": [32.7351186, -97.100223], "evd": 0.9, "edl": "Same subcourthouse, 1st Floor Meeting Room", "eda": "700 E Abram St, Arlington, TX 76010", "ed": [32.7351186, -97.100223], "edd": 0.9, "note": ""}, {"name": "Texas Woman's University", "county": "Denton", "caddr": "304 Administration Dr, Denton, TX 76204", "c": [33.2272894, -97.1243272], "evl": "On campus: Hubbard Hall, Room 1200", "eva": "303 Administration Dr, Denton, TX 76201", "ev": [33.2262107, -97.1282017], "evd": 0.2, "edl": "Precinct-based: each student votes at their OWN precinct site (votedenton.gov)", "eda": null, "ed": null, "edd": null, "note": "Denton votes by precinct on Election Day"}, {"name": "UNT", "county": "Denton", "caddr": "1155 Union Cir, Denton, TX 76203", "c": [33.2124699, -97.1452929], "evl": "On campus: Gateway Center, Room 52", "eva": "801 N Texas Blvd, Denton, TX 76201", "ev": [33.2076895, -97.1542474], "evd": 0.6, "edl": "On campus for precinct 4187 ONLY: Gateway Center, Room 52", "eda": "801 N Texas Blvd, Denton, TX 76201", "ed": [33.2076895, -97.1542474], "edd": 0.6, "note": "Denton votes by precinct on Election Day"}, {"name": "UTEP", "county": "El Paso", "caddr": "500 W University Ave, El Paso, TX 79968", "c": [31.7749798, -106.5075128], "evl": "On campus: Union Building East, River View Room 102H (shorter hours)", "eva": "351 W University Ave, El Paso, TX 79968", "ev": [31.7710911, -106.503262], "evd": 0.4, "edl": "On campus: Union Building East, Acacia Room 120A", "eda": "351 W University Ave, El Paso, TX 79968", "ed": [31.7710911, -106.503262], "edd": 0.4, "note": "UTEP EV hours: 8-5, Oct 24-25 12-5"}, {"name": "Texas A&M International", "county": "Webb", "caddr": "5201 University Blvd, Laredo, TX 78041", "c": [27.5722485, -99.4325843], "evl": "Laredo Fire Dept. Administrative Center", "eva": "616 E Del Mar Blvd, Laredo, TX 78041", "ev": [27.57181, -99.48171], "evd": 3.0, "edl": "Texas A&M Int'l University Village (building/room: confirm with Webb Elections)", "eda": "4907 University Blvd, Laredo, TX 78041", "ed": [27.5747039, -99.4400983], "edd": 0.5, "note": "E-Day site: Medium confidence"}, {"name": "UTRGV Edinburg", "county": "Hidalgo", "caddr": "1201 W University Dr, Edinburg, TX 78539", "c": [26.3071534, -98.1728187], "evl": "On campus: Student Academic Center (ESTAC)", "eva": "1201 W University Dr, Edinburg, TX 78539", "ev": [26.3071534, -98.1728187], "evd": 0.0, "edl": "On campus: same site (#20)", "eda": "1201 W University Dr, Edinburg, TX 78539", "ed": [26.3071534, -98.1728187], "edd": 0.0, "note": ""}, {"name": "UTRGV Brownsville", "county": "Cameron", "caddr": "1 W University Blvd, Brownsville, TX 78520", "c": [25.8958142, -97.4881916], "evl": "On campus: UTRGV Student Union, Salon Jacaranda", "eva": "650 Ringgold St, Brownsville, TX 78520", "ev": [25.9119426, -97.4936329], "evd": 1.2, "edl": "On campus: UTRGV Main (BMAIN), Salon Cassia", "eda": "1 W University Blvd, Brownsville, TX 78520", "ed": [25.8958142, -97.4881916], "edd": 0.0, "note": "Cameron E-Day list says 'locations subject to change'"}];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const gm = a => "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(a);
+const col = {c:"#2b59c3", ev:"#1a8a4a", ed:"#c2410c"};
+// On a website (GitHub Pages, the tunnel) use OpenStreetMap tiles. Opened straight from disk there is no website to name,
+// and tile.openstreetmap.org (and CARTO) refuse that, so a local copy falls back to Esri street tiles for that one viewer.
+const LOCAL = location.protocol === "file:";
+const tiles = () => LOCAL
+  ? L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {maxZoom: 19, attribution: "Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors"})
+  : L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 19, attribution: "&copy; OpenStreetMap contributors"});
+function pin(p, color, label) { return L.circleMarker(p, {radius: 8, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1}).bindTooltip(esc(label)); }
+function distText(d, label) { if (d == null) return ""; if (d < 0.15) return "on campus"; if (/on campus/i.test(label || "")) return "on campus, " + d + " mi from the main address"; return d + " mi from campus"; }
+function site(cls, head, label, addr, d, hasPin) {
+  if (!addr) return '<div class="site ' + cls + '"><b>' + head + '</b>' + esc(label) + '</div>';
+  return '<div class="site ' + cls + '"><b>' + head + '</b>' + esc(label) + '<br>' + esc(addr) + '<br><span class="dist">' + distText(d, label) + '</span>'
+    + (d == null ? '' : ' &middot; ') + '<a href="' + gm(addr) + '" target="_blank" rel="noopener">directions</a>'
+    + (hasPin ? '' : '<br><i>No reliable map pin for this address; use the written address.</i>') + '</div>';
+}
+const ov = L.map("overview", {scrollWheelZoom: false}); tiles().addTo(ov);
+const allPts = []; let html = "", lastCounty = "", jump = "";
+D.forEach((d, i) => {
+  if (d.county !== lastCounty) { html += '<div class="county">' + esc(d.county) + ' County</div>'; lastCounty = d.county; }
+  jump += '<a href="#c' + i + '">' + esc(d.name) + '</a>';
+  html += '<section class="card" id="c' + i + '"><div><h2>' + esc(d.name) + '</h2><div class="sub">' + esc(d.county) + ' County</div>'
+    + '<div class="mini" id="m' + i + '"></div>'
+    + '<div class="site cp"><b>Campus</b>' + esc(d.caddr) + '</div>'
+    + site("ev", "Early voting &middot; Oct 19&ndash;30", d.evl, d.eva, d.evd, !!d.ev)
+    + site("ed", "Election Day &middot; Nov 3", d.edl, d.eda, d.edd, !!d.ed)
+    + (d.note ? '<div class="note">' + esc(d.note) + '</div>' : '')
+    + '<div class="ver">Checked against the ' + esc(d.county) + ' County list, Oct 13&ndash;14, 2026</div></div></section>';
+  if (d.c) { allPts.push(d.c); pin(d.c, col.c, d.name).addTo(ov).on("click", () => document.getElementById("c" + i).scrollIntoView({behavior: "smooth"})); }
+});
+document.getElementById("cards").innerHTML = html; document.getElementById("jump").innerHTML = jump;
+ov.fitBounds(allPts, {padding: [20, 20]});
+function bld(label) { return String(label).replace(/^On campus( for precinct \d+ ONLY)?:\s*/i, "").replace(/^Same subcourthouse,\s*/i, "Subcourthouse, "); }
+function labHtml(head, label) { return head + (label ? "<small>" + esc(bld(label)) + "</small>" : ""); }
+function big(p, cls, head, label, dir, off) {
+  const ring = cls === "only", color = {c: col.c, ev: col.ev, ed: col.ed, both: col.ev, only: col.ed}[cls];
+  return L.circleMarker(p, ring ? {radius: 14, color: color, weight: 4, fill: false}
+                                : {radius: 12, color: cls === "both" ? col.ed : "#fff", weight: cls === "both" ? 5 : 3, fillColor: color, fillOpacity: 1})
+    .bindTooltip(labHtml(head, label), {permanent: true, direction: dir, offset: off, className: "lab " + cls, opacity: 1});
+}
+function drawMini(i) {
+  const d = D[i], el = document.getElementById("m" + i); if (el.dataset.done) return; el.dataset.done = 1;
+  const m = L.map(el, {scrollWheelZoom: false}); tiles().addTo(m);
+  // pins on the same spot merge into one labelled pin instead of stacking
+  const near = (a, b) => a && b && Math.abs(a[0] - b[0]) < 0.0004 && Math.abs(a[1] - b[1]) < 0.0004;
+  const only = /ONLY/.test(d.edl), both = near(d.ev, d.ed) && !only, campusToo = both && near(d.c, d.ev);
+  const pins = [], lines = [];
+  if (both) pins.push([d.ev, "both", campusToo ? "ON CAMPUS: EARLY VOTING + ELECTION DAY" : "EARLY VOTING + ELECTION DAY", d.evl]);
+  else {
+    if (d.ev) pins.push([d.ev, "ev", near(d.ev, d.c) ? "ON CAMPUS: EARLY VOTING" : "EARLY VOTING", d.evl]);
+    if (d.ed) pins.push([d.ed, only ? "only" : "ed", only ? "ELECTION DAY: 1 PRECINCT ONLY" : near(d.ed, d.c) ? "ON CAMPUS: ELECTION DAY" : "ELECTION DAY", d.edl]);
+  }
+  if (d.c && !pins.some(q => near(q[0], d.c))) pins.unshift([d.c, "c", "CAMPUS", d.name]);
+  if (d.c) for (const q of pins) { if (q[1] === "c") continue; const dd = q[0] === d.ev ? d.evd : d.edd;
+    if (dd >= 0.15) lines.push([q[0], q[1] === "ev" ? col.ev : col.ed, dd]); }
+  const pts = pins.map(q => q[0]);
+  if (pts.length > 1) m.fitBounds(pts, {padding: [75, 75], maxZoom: 17}); else m.setView(pts[0], 17);
+  const gap = (a, b) => { const A = m.latLngToContainerPoint(a), B = m.latLngToContainerPoint(b); return Math.hypot(A.x - B.x, A.y - B.y); };
+  for (const q of lines) { q[3] = gap(d.c, q[0]) >= 95;   // too short to hold a mile marker without covering the pins; the miles are in the text below
+    const ln = L.polyline([d.c, q[0]], {color: q[1], weight: 4, dashArray: "8 7"}).addTo(m);
+    if (q[3]) ln.bindTooltip(q[2] + " mi", {permanent: true, direction: "center", className: "mi"}).openTooltip(); }
+  // place each label where it stays on the map and clear of every pin, mile marker and label already placed
+  const W = el.clientWidth, H = el.clientHeight, px = ll => m.latLngToContainerPoint(ll);
+  const fixed = [];   // pins and mile markers never move; labels must keep off them
+  for (const q of pins) { const a = px(q[0]); fixed.push([a.x - 15, a.y - 15, a.x + 15, a.y + 15]); }
+  fixed.push([0, 0, 52, 88]);   // the zoom buttons
+  for (const [p, , dd, shown] of lines) { if (!shown) continue; const a = px(d.c), b = px(p), x = (a.x + b.x) / 2, y = (a.y + b.y) / 2; fixed.push([x - 26, y - 13, x + 26, y + 13]); }
+  const ov = (r, s) => Math.max(0, Math.min(r[2], s[2]) - Math.max(r[0], s[0])) * Math.max(0, Math.min(r[3], s[3]) - Math.max(r[1], s[1]));
+  // every candidate spot for every label, with its own cost (off-map, sitting on a pin or mile marker, hanging off-centre)
+  const cands = pins.map((q, k) => {
+    const a = px(q[0]), g = 16, probe = document.createElement("div");
+    probe.className = "leaflet-tooltip lab " + q[1]; probe.style.cssText = "position:absolute;visibility:hidden;left:0;top:0"; probe.innerHTML = labHtml(q[2], q[3]);
+    document.body.appendChild(probe); const w = probe.offsetWidth + 2, h = probe.offsetHeight + 2; probe.remove();
+    const cx = Math.max(4, Math.min(W - 4 - w, a.x - w / 2)), lx = Math.max(4, a.x - w + 14), rx = Math.min(W - 4 - w, a.x - 14);
+    const spots = [["top", cx, a.y - g - h], ["bottom", cx, a.y + g], ["right", a.x + g, a.y - h / 2], ["left", a.x - g - w, a.y - h / 2],
+                   ["top", lx, a.y - g - h], ["top", rx, a.y - g - h], ["bottom", lx, a.y + g], ["bottom", rx, a.y + g]];
+    return spots.map(([dir, x, y]) => {
+      const r = [x - 5, y - 5, x + w + 5, y + h + 5];
+      let s = fixed.reduce((acc, o, j) => acc + (j === k ? 0 : ov(r, o)), 0) * 4;
+      s += (Math.max(0, -x) + Math.max(0, x + w - W) + Math.max(0, -y) + Math.max(0, y + h - H)) * 60;   // running off the map is worst
+      s += (dir === "top" || dir === "bottom" ? Math.abs(x - (a.x - w / 2)) : 30) * 0.2;   // prefer a label centred on its own pin
+      const off = dir === "top" ? [x - (a.x - w / 2), -12] : dir === "bottom" ? [x - (a.x - w / 2), 12] : dir === "left" ? [-12, 0] : [12, 0];
+      return {dir, r, s, off};
+    });
+  });
+  // labels must also keep off each other: search all combinations (8^3 = 512 at most) for the cheapest layout
+  let best = null, bestS = Infinity;
+  const pick = (k, chosen, s) => {
+    if (s >= bestS) return;
+    if (k === cands.length) { bestS = s; best = chosen.slice(); return; }
+    for (const c of cands[k]) { const extra = chosen.reduce((acc, o) => acc + ov(c.r, o.r), 0); chosen.push(c); pick(k + 1, chosen, s + c.s + extra * 6); chosen.pop(); }
+  };
+  pick(0, [], 0);
+  pins.forEach((q, k) => big(q[0], q[1], q[2], q[3], best[k].dir, best[k].off).addTo(m));
+}
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) drawMini(+e.target.id.slice(1)); }), {rootMargin: "300px"});
+D.forEach((d, i) => io.observe(document.getElementById("m" + i)));
+window.addEventListener("beforeprint", () => D.forEach((d, i) => drawMini(i)));
+</script></body></html>
